@@ -2,11 +2,10 @@ import SwiftUI
 
 @main
 struct PodcastReadyApp: App {
-    // Hide dock icon — menubar only
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var menuBarManager = MenuBarManager()
 
     var body: some Scene {
-        // Empty Settings scene required but we use menubar only
         Settings {
             EmptyView()
         }
@@ -15,7 +14,6 @@ struct PodcastReadyApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Hide from dock
         NSApp.setActivationPolicy(.accessory)
     }
 }
