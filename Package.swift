@@ -11,7 +11,8 @@ let package = Package(
         .executableTarget(
             name: "PodcastReady",
             dependencies: ["SwiftAnthropic"],
-            path: "PodcastReady"
+            path: "PodcastReady",
+            exclude: ["Info.plist"]
         ),
     ]
 )

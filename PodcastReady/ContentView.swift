@@ -1,22 +1,30 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var cameraManager = CameraManager()
+
     var body: some View {
         VStack(spacing: 16) {
             Text("PodcastReady")
                 .font(.headline)
 
-            Rectangle()
-                .fill(Color.black)
-                .frame(height: 225)
-                .overlay(
-                    Text("Camera Preview")
-                        .foregroundColor(.white)
-                )
-                .cornerRadius(8)
+            if cameraManager.isAuthorized {
+                CameraPreviewView(session: cameraManager.session)
+                    .frame(height: 225)
+                    .cornerRadius(8)
+            } else {
+                Rectangle()
+                    .fill(Color.black)
+                    .frame(height: 225)
+                    .overlay(
+                        Text("Camera access required")
+                            .foregroundColor(.white)
+                    )
+                    .cornerRadius(8)
+            }
 
             Button("Analyze Setup") {
-                // TODO: implement
+                // TODO: implement analysis
             }
             .buttonStyle(.borderedProminent)
 
