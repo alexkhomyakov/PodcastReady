@@ -65,6 +65,14 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .disabled(isAnalyzing || !cameraManager.isAuthorized)
 
+            // First-launch hint
+            if KeychainManager.retrieve() == nil && analysisResult == nil && errorMessage == nil {
+                Text("Add your Anthropic API key in Settings to get started.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
             // Error message
             if let errorMessage {
                 Text(errorMessage)
@@ -77,6 +85,17 @@ struct ContentView: View {
             if let result = analysisResult {
                 Divider()
                 AnalysisResultView(result: result)
+            }
+
+            Divider()
+            HStack {
+                Spacer()
+                Button("Quit PodcastReady") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundColor(.secondary)
             }
 
             Spacer()
