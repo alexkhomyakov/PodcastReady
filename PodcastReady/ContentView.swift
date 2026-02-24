@@ -18,57 +18,57 @@ struct ContentView: View {
     }
 
     private var mainView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             // Header
             HStack {
                 Text("PodcastReady")
                     .font(.headline)
                 Spacer()
+                Button(action: analyzeSetup) {
+                    if isAnalyzing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(.horizontal, 8)
+                    } else {
+                        Label("Analyze Setup", systemImage: "sparkles")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isAnalyzing || !cameraManager.isAuthorized)
+
                 Button(action: { showSettings.toggle() }) {
                     Image(systemName: "gear")
                 }
                 .buttonStyle(.borderless)
             }
 
-            // Side-by-side: camera left, results right
-            HStack(alignment: .top, spacing: 16) {
-                // Left: camera + analyze button
-                VStack(spacing: 10) {
-                    if cameraManager.isAuthorized {
-                        CameraPreviewView(session: cameraManager.session)
-                            .frame(width: 320, height: 240)
-                            .cornerRadius(8)
-                    } else {
-                        Rectangle()
-                            .fill(Color.black)
-                            .frame(width: 320, height: 240)
-                            .overlay(
-                                VStack(spacing: 8) {
-                                    Image(systemName: "camera.fill")
-                                        .font(.largeTitle)
-                                    Text("Camera access required")
-                                    Text("System Settings > Privacy > Camera")
-                                        .font(.caption)
-                                }
-                                .foregroundColor(.white)
-                            )
-                            .cornerRadius(8)
-                    }
-
-                    Button(action: analyzeSetup) {
-                        if isAnalyzing {
-                            ProgressView()
-                                .controlSize(.small)
-                                .padding(.horizontal, 8)
-                        } else {
-                            Label("Analyze Setup", systemImage: "sparkles")
+            // Full-width camera preview (16:9)
+            if cameraManager.isAuthorized {
+                CameraPreviewView(session: cameraManager.session)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 280)
+                    .background(Color.black)
+                    .cornerRadius(8)
+            } else {
+                Rectangle()
+                    .fill(Color.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 280)
+                    .overlay(
+                        VStack(spacing: 8) {
+                            Image(systemName: "camera.fill")
+                                .font(.largeTitle)
+                            Text("Camera access required")
+                            Text("System Settings > Privacy > Camera")
+                                .font(.caption)
                         }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isAnalyzing || !cameraManager.isAuthorized)
-                }
+                        .foregroundColor(.white)
+                    )
+                    .cornerRadius(8)
+            }
 
-                // Right: results panel
+            // Results panel below camera
+            ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     if let result = analysisResult {
                         AnalysisResultView(result: result)
@@ -85,12 +85,9 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    Spacer()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Spacer()
 
             Divider()
             HStack {
@@ -104,7 +101,7 @@ struct ContentView: View {
             }
         }
         .padding()
-        .frame(width: 720, height: 400)
+        .frame(width: 720, height: 520)
     }
 
     private func analyzeSetup() {

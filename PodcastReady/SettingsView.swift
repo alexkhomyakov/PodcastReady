@@ -84,6 +84,6 @@ struct SettingsView: View {
             Spacer()
         }
         .padding()
-        .frame(width: 720, height: 400)
+        .frame(width: 720, height: 520)
     }
 }
