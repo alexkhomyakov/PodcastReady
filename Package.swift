@@ -12,7 +12,7 @@ let package = Package(
             name: "PodcastReady",
             dependencies: ["SwiftAnthropic"],
             path: "PodcastReady",
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist", "PodcastReady.entitlements", "Resources"]
         ),
     ]
 )
