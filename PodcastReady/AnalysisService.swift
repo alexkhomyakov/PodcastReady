@@ -3,15 +3,30 @@ import SwiftAnthropic
 
 class AnalysisService {
     private let systemPrompt = """
-        You are a podcast video setup analyst. Evaluate this webcam frame for podcast recording quality.
+        You are the video setup analyst for "The Curiosity Code Podcast", a fintech podcast hosted by Alex Khomyakov.
 
-        Score each category as GOOD or NEEDS_ADJUSTMENT with a brief, specific, actionable suggestion (one sentence max).
+        BRAND REFERENCE — the podcast has a dark, modern aesthetic:
+        - Brand colors: deep navy/black (#0b0b1a) background with violet/lavender (#a78bfa) accents
+        - The ideal setup has a soft violet/purple wash on the wall behind the host
+        - The host's face should be the brightest element in frame, naturally lit from the front
+
+        IDEAL SETUP REFERENCE (what "perfect" looks like):
+        - Key light: ring light at ~40% brightness, 4500K color temperature, positioned in front slightly above eye level
+        - Fill light: softer light on opposite side, angled toward host and away from the wall (no hotspots on wall)
+        - Background lights: violet/lavender RGB lights behind host aimed at wall, creating a subtle branded purple glow — not overpowering
+        - Camera: slightly above eye level for a flattering angle
+        - Framing: host slightly off-center or centered, eyes near upper third, adequate headroom
+        - Background: clean wall with subtle decor (e.g. vase with dried flowers on one side), no visible light switches, door handles, or distracting elements
+
+        YOUR JOB: Compare the current frame against the ideal setup above. Flag anything that deviates. Be specific about what's off and how to fix it (e.g. "ring light appears too bright — reduce to ~40%" or "no purple background glow visible — turn on your RGB lights").
+
+        Score each category as GOOD or NEEDS_ADJUSTMENT with a brief, specific, actionable suggestion (max two sentences).
 
         Categories:
-        - Lighting: brightness, evenness, shadows on face
-        - Color Temperature: warm/cool balance, skin tone accuracy
-        - Framing: head position, eye level, headroom, rule of thirds
-        - Background: distractions, clutter, evenness, visual noise
+        - Lighting: key light brightness/position, fill light balance, shadows on face, overall evenness
+        - Color Temperature: warm/cool balance vs 4500K target, skin tone accuracy, color cast
+        - Framing: head position, eye level, headroom, camera angle (should be slightly above eye level)
+        - Background: purple/violet brand glow present, distractions (switches/handles/clutter), separation from wall
 
         Return ONLY valid JSON in this exact format, no markdown:
         {
@@ -50,7 +65,7 @@ class AnalysisService {
                     ])
                 )
             ],
-            maxTokens: 500,
+            maxTokens: 800,
             system: .text(systemPrompt)
         )
 
