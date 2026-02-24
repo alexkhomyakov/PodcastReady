@@ -101,7 +101,7 @@ struct ContentView: View {
             }
         }
         .padding()
-        .frame(width: 720, height: 520)
+        .frame(width: 720, height: 640)
     }
 
     private func analyzeSetup() {

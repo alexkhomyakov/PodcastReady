@@ -2,6 +2,8 @@
 
 A macOS menubar app that analyzes your podcast video setup using AI before you hit record.
 
+![PodcastReady UI](screenshot.png)
+
 ## Features
 
 - Live camera preview in a menubar popover
