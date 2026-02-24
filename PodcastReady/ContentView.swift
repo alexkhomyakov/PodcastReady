@@ -18,7 +18,7 @@ struct ContentView: View {
     }
 
     private var mainView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             // Header
             HStack {
                 Text("PodcastReady")
@@ -30,62 +30,67 @@ struct ContentView: View {
                 .buttonStyle(.borderless)
             }
 
-            // Camera preview
-            if cameraManager.isAuthorized {
-                CameraPreviewView(session: cameraManager.session)
-                    .frame(height: 225)
-                    .cornerRadius(8)
-            } else {
-                Rectangle()
-                    .fill(Color.black)
-                    .frame(height: 225)
-                    .overlay(
-                        VStack(spacing: 8) {
-                            Image(systemName: "camera.fill")
-                                .font(.largeTitle)
-                            Text("Camera access required")
-                            Text("Grant access in System Settings > Privacy > Camera")
-                                .font(.caption)
+            // Side-by-side: camera left, results right
+            HStack(alignment: .top, spacing: 16) {
+                // Left: camera + analyze button
+                VStack(spacing: 10) {
+                    if cameraManager.isAuthorized {
+                        CameraPreviewView(session: cameraManager.session)
+                            .frame(width: 320, height: 240)
+                            .cornerRadius(8)
+                    } else {
+                        Rectangle()
+                            .fill(Color.black)
+                            .frame(width: 320, height: 240)
+                            .overlay(
+                                VStack(spacing: 8) {
+                                    Image(systemName: "camera.fill")
+                                        .font(.largeTitle)
+                                    Text("Camera access required")
+                                    Text("System Settings > Privacy > Camera")
+                                        .font(.caption)
+                                }
+                                .foregroundColor(.white)
+                            )
+                            .cornerRadius(8)
+                    }
+
+                    Button(action: analyzeSetup) {
+                        if isAnalyzing {
+                            ProgressView()
+                                .controlSize(.small)
+                                .padding(.horizontal, 8)
+                        } else {
+                            Label("Analyze Setup", systemImage: "sparkles")
                         }
-                        .foregroundColor(.white)
-                    )
-                    .cornerRadius(8)
-            }
-
-            // Analyze button
-            Button(action: analyzeSetup) {
-                if isAnalyzing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .padding(.horizontal, 8)
-                } else {
-                    Label("Analyze Setup", systemImage: "sparkles")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isAnalyzing || !cameraManager.isAuthorized)
                 }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isAnalyzing || !cameraManager.isAuthorized)
 
-            // First-launch hint
-            if KeychainManager.retrieve() == nil && analysisResult == nil && errorMessage == nil {
-                Text("Add your Anthropic API key in Settings to get started.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+                // Right: results panel
+                VStack(alignment: .leading, spacing: 8) {
+                    if let result = analysisResult {
+                        AnalysisResultView(result: result)
+                    } else if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    } else if KeychainManager.retrieve() == nil {
+                        Text("Add your Anthropic API key in Settings to get started.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Click Analyze Setup to check your video setup.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Error message
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-            }
-
-            // Results
-            if let result = analysisResult {
-                Divider()
-                AnalysisResultView(result: result)
-            }
+            Spacer()
 
             Divider()
             HStack {
@@ -97,11 +102,9 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             }
-
-            Spacer()
         }
         .padding()
-        .frame(width: 400, height: 520)
+        .frame(width: 720, height: 400)
     }
 
     private func analyzeSetup() {
