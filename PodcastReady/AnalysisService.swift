@@ -40,7 +40,7 @@ class AnalysisService {
         )
 
         let message = MessageParameter(
-            model: .other("claude-3-7-sonnet-latest"),
+            model: .other("claude-haiku-4-5-20251001"),
             messages: [
                 .init(
                     role: .user,
@@ -62,8 +62,22 @@ class AnalysisService {
             throw AnalysisError.invalidResponse
         }
 
+        // Strip markdown code fences if present
+        var jsonText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if jsonText.hasPrefix("```") {
+            // Remove opening fence (```json or ```)
+            if let firstNewline = jsonText.firstIndex(of: "\n") {
+                jsonText = String(jsonText[jsonText.index(after: firstNewline)...])
+            }
+            // Remove closing fence
+            if jsonText.hasSuffix("```") {
+                jsonText = String(jsonText.dropLast(3))
+            }
+            jsonText = jsonText.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
         // Parse JSON response
-        guard let jsonData = text.data(using: .utf8) else {
+        guard let jsonData = jsonText.data(using: .utf8) else {
             throw AnalysisError.invalidResponse
         }
 

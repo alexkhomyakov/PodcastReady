@@ -124,7 +124,7 @@ struct ContentView: View {
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
+                    errorMessage = String(describing: error)
                     isAnalyzing = false
                 }
             }
