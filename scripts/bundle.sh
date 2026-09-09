@@ -100,9 +100,58 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
 
     <key>NSHighResolutionCapable</key>
     <true/>
+
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>PodcastReady controls your Elgato light over your local network.</string>
+
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_elg._tcp</string>
+    </array>
 </dict>
 </plist>
 PLIST
+
+# ── Step 6b: Code sign ───────────────────────────────────────────────────────
+#
+# Signed with a STABLE identity rather than ad-hoc. An ad-hoc signature is
+# derived from the binary's contents, so it changes on every build, and macOS
+# treats each build as a different app — which meant re-granting Local Network
+# permission (and losing sight of the Elgato light) after every single rebuild.
+#
+# Deliberately no --options runtime: the hardened runtime would additionally
+# require com.apple.security.device.usb for the UVC camera control and
+# device.camera for the preview, and there is nothing to gain here without
+# notarisation. Plain signing is enough for a stable identity.
+SIGN_ID="${PODCASTREADY_SIGN_ID:-$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)"/\1/')}"
+
+# Sign a copy staged OUTSIDE the repo. The repo lives under Documents/, which
+# is iCloud-synced, so the bundle carries com.apple.FinderInfo and a
+# fileprovider attribute — and codesign refuses outright: "resource fork,
+# Finder information, or similar detritus not allowed". `xattr -cr` does not
+# stick there because the file provider puts them straight back.
+#
+# This mattered more than it sounds: with set -e the failure aborted the script
+# BEFORE the install step, so the app silently stayed on the previous build
+# while the console showed a build that had, in fact, succeeded.
+STAGE="$(mktemp -d)/PodcastReady.app"
+mkdir -p "$(dirname "$STAGE")"
+ditto --norsrc --noextattr --noacl "$APP_BUNDLE" "$STAGE"
+xattr -cr "$STAGE" 2>/dev/null || true
+
+if [[ -n "$SIGN_ID" ]]; then
+    echo "6b. Signing with: $SIGN_ID"
+    codesign --force --deep --sign "$SIGN_ID" "$STAGE"
+    codesign -dv "$STAGE" 2>&1 | grep -E "Authority|TeamIdentifier" | sed 's/^/    /'
+else
+    echo "6b. No Developer ID found — falling back to ad-hoc (permissions will reset each build)."
+    codesign --force --deep --sign - "$STAGE"
+fi
+
+# The signed staged copy is what ships, and what the repo copy becomes.
+rm -rf "$APP_BUNDLE"
+ditto "$STAGE" "$APP_BUNDLE"
 
 # ── Step 7: Copy to /Applications ───────────────────────────────────────────
 if [[ "$NO_COPY" == false ]]; then
@@ -110,7 +159,7 @@ if [[ "$NO_COPY" == false ]]; then
     if [[ -d "/Applications/PodcastReady.app" ]]; then
         rm -rf "/Applications/PodcastReady.app"
     fi
-    cp -R "$APP_BUNDLE" "/Applications/PodcastReady.app"
+    ditto "$STAGE" "/Applications/PodcastReady.app"
     echo "   Installed."
 else
     echo "7. Skipping /Applications copy (--no-copy flag)."

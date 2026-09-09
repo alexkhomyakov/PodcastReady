@@ -1,5 +1,6 @@
-import SwiftUI
 import AVFoundation
+import ServiceManagement
+import SwiftUI
 
 struct SettingsView: View {
     @Binding var isPresented: Bool
@@ -7,6 +8,8 @@ struct SettingsView: View {
 
     @State private var apiKey: String = ""
     @State private var savedSuccessfully = false
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var launchError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -53,6 +56,34 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                }
+            }
+
+            Divider()
+
+            // Launch at login
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Application")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Toggle("Open at login", isOn: $launchAtLogin)
+                    .toggleStyle(.checkbox)
+                    .onChange(of: launchAtLogin) { _, wanted in
+                        launchError = LaunchAtLogin.set(wanted)
+                        // Read the state back rather than trusting the write —
+                        // macOS can accept the call and still leave it off.
+                        launchAtLogin = LaunchAtLogin.isEnabled
+                    }
+
+                if let launchError {
+                    Text(launchError).font(.caption).foregroundColor(.red)
+                } else if LaunchAtLogin.needsApproval {
+                    Text("Waiting on approval in System Settings › General › Login Items.")
+                        .font(.caption).foregroundColor(.orange)
+                } else if launchAtLogin {
+                    Text("Opens with your Mac, applies your launch profile, and sits in the menubar.")
+                        .font(.caption).foregroundColor(.secondary)
                 }
             }
 
