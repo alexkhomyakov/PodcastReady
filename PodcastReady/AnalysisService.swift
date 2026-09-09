@@ -1,29 +1,58 @@
 import Foundation
-import SwiftAnthropic
 
 class AnalysisService {
     private let systemPrompt = """
-        You are a video setup coach for "The Curiosity Code Podcast". Analyze ONLY what you see in the image. Every frame is independent — judge it fresh with no assumptions.
+        You are a video setup coach for "The Curiosity Code Podcast".
+
+        You are given a frame AND a set of measurements taken from that frame in
+        code. TRUST THE MEASUREMENTS over your impression of the image: a JPEG
+        viewed by a model is not a reliable photometer, and every real fault in
+        this rig was found by measuring, not by looking. Use the image to explain
+        WHY a number is off and what to physically move.
 
         CATEGORIES (keep feedback in the right bucket):
-        - lighting: Is the host's FACE well-lit? Even illumination, no harsh shadows on one side? This is about the key light and fill light on the host's face only.
-        - colorTemperature: Do skin tones look natural? Not too orange, not too blue?
-        - framing: Where are the host's eyes in the frame? They should be near the upper third. Too much headroom = eyes too low. Also: is the host centered?
-        - background: Everything behind the host. Wall color/glow, visible objects (light switches, outlets, fixtures, clutter), how even the purple/violet accent lighting is on the wall.
+        - lighting: Is the face well exposed and does it have shape? Driven by
+          "forehead luma" and "key:fill". A key:fill near 1.0 means the light is
+          on the camera axis and the face is flat, whatever the image looks like.
+        - colorTemperature: Do skin tones look natural? Judge this from the R-B
+          figure on the TOP, which is a mid-tone garment lit by the key and is
+          the only trustworthy neutral reference. The WALL is not one: there is
+          coloured RGB accent lighting on the back wall on purpose, so a large
+          negative wall R-B is a design decision, not a fault. Never tell the
+          user to turn off or change their accent lighting on colour-temperature
+          grounds. Negative means blue, positive means warm.
+        - framing: Where are the eyes? They should sit near the upper third. Is
+          the host centred, with no wasted headroom?
+        - background: Everything behind the host. Driven by "face minus wall" and
+          "crushed to black". Also call out visible clutter, and the office chair
+          headrest if it appears behind the head. Coloured accent lighting on the
+          back wall is wanted — comment on it only if it is blowing out or
+          spilling onto the host's face.
 
-        IDEAL SETUP (reference only):
-        - Ring light ~40%, 4500K, front-facing slightly above eye level
-        - Fill light on opposite side aimed at host
-        - Subtle violet/lavender RGB glow on wall behind host
-        - Eyes near upper third of frame
-        - Clean background with no distracting objects
+        THE RIG (what a correct setup looks like here):
+        - Elgato Ring Light E196, roughly 55% brightness, 3000K, positioned
+          OFF-AXIS about 45 degrees to camera-left and slightly above eye level.
+          It must NOT be front-facing: on-axis is what makes the face flat.
+        - A white bounce card on camera-right as the fill. Deliberately a card
+          and not a second lamp, so the fill keeps the key's 3000K rather than
+          splitting the face into two colours.
+        - Window roller shutter fully CLOSED. Daylight makes the background
+          brighter than the face and turns a 3000K-locked white balance blue.
+        - A brass table lamp on the credenza, camera-left, plus deliberate RGB
+          accent lighting washing the back wall. The accent colour is a choice.
+        - Camera: manual exposure, manual white balance at 3000K, locked focus,
+          50 Hz powerline, low gain.
+        - A mid-tone top. A white shirt reflects roughly 2.4x what skin does and
+          becomes the brightest thing in frame.
 
         RULES:
-        - Describe what you actually see, not what you expect to see.
-        - Only flag what's genuinely wrong. If it looks good, say so briefly.
-        - ONE short sentence per suggestion. Specific physical action when something needs fixing.
-        - Don't repeat ideal settings back. Don't explain what good lighting is.
-        - RGB/purple wall glow goes under "background", not "lighting".
+        - Lead from the measurements. Name the number when you flag something.
+        - Only flag what is genuinely wrong. If a category is fine, say so briefly.
+        - ONE short sentence per suggestion, naming a specific physical action.
+        - Do not repeat the ideal settings back. Do not explain what good lighting is.
+        - If no face was detected, say so under framing and do not invent face numbers.
+        - If the top's R-B is large, say the reading may be unreliable rather than
+          asserting a colour cast — the sample can catch skin or a shadowed fold.
 
         Score: GOOD or NEEDS_ADJUSTMENT.
 
@@ -36,67 +65,43 @@ class AnalysisService {
         }
         """
 
-    func analyze(imageData: Data) async throws -> AnalysisResult {
+    func analyze(imageData: Data, metrics: FrameMetrics?) async throws -> AnalysisResult {
         guard let apiKey = KeychainManager.retrieve() else {
             throw AnalysisError.noAPIKey
         }
 
-        let service = AnthropicServiceFactory.service(
-            apiKey: apiKey,
-            betaHeaders: nil
-        )
-        let base64Image = imageData.base64EncodedString()
+        let measurements = metrics?.promptSummary
+            ?? "Measurement failed for this frame — judge from the image alone and say so."
 
-        let imageSource = MessageParameter.Message.Content.ImageSource(
-            type: .base64,
-            mediaType: .jpeg,
-            data: base64Image
-        )
+        let prompt = """
+            Analyze this podcast video setup.
 
-        let message = MessageParameter(
-            model: .other("claude-opus-4-6"),
-            messages: [
-                .init(
-                    role: .user,
-                    content: .list([
-                        .image(imageSource),
-                        .text("Analyze this podcast video setup. Look carefully at the actual image — what do you see?"),
-                    ])
-                )
-            ],
-            maxTokens: 800,
-            system: .text(systemPrompt)
-        )
+            MEASUREMENTS FROM THIS FRAME (luma is 0-255):
+            \(measurements)
 
-        let response = try await service.createMessage(message)
+            Use these numbers as the ground truth and the image to explain them.
+            """
 
-        // Extract text from response
-        guard let textBlock = response.content.first,
-              case .text(let text) = textBlock else {
-            throw AnalysisError.invalidResponse
-        }
+        let client = AnthropicClient(apiKey: apiKey)
+        let text = try await client.complete(system: systemPrompt, prompt: prompt, jpeg: imageData)
 
         // Strip markdown code fences if present
         var jsonText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if jsonText.hasPrefix("```") {
-            // Remove opening fence (```json or ```)
             if let firstNewline = jsonText.firstIndex(of: "\n") {
                 jsonText = String(jsonText[jsonText.index(after: firstNewline)...])
             }
-            // Remove closing fence
             if jsonText.hasSuffix("```") {
                 jsonText = String(jsonText.dropLast(3))
             }
             jsonText = jsonText.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        // Parse JSON response
         guard let jsonData = jsonText.data(using: .utf8) else {
             throw AnalysisError.invalidResponse
         }
 
-        let decoder = JSONDecoder()
-        return try decoder.decode(AnalysisResult.self, from: jsonData)
+        return try JSONDecoder().decode(AnalysisResult.self, from: jsonData)
     }
 }
 
