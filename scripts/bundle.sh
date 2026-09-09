@@ -72,10 +72,10 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
     <string>com.curiositycode.podcastready</string>
 
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>2.0.0</string>
 
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.0.0</string>
 
     <key>CFBundleExecutable</key>
     <string>PodcastReady</string>
@@ -119,10 +119,10 @@ PLIST
 # treats each build as a different app — which meant re-granting Local Network
 # permission (and losing sight of the Elgato light) after every single rebuild.
 #
-# Deliberately no --options runtime: the hardened runtime would additionally
-# require com.apple.security.device.usb for the UVC camera control and
-# device.camera for the preview, and there is nothing to gain here without
-# notarisation. Plain signing is enough for a stable identity.
+# Signed WITH the hardened runtime and entitlements, because notarisation
+# requires it. device.usb is the load-bearing entitlement: the UVC camera
+# controls are IOKit USB control requests, not AVFoundation, so the camera
+# entitlement alone does not cover them.
 SIGN_ID="${PODCASTREADY_SIGN_ID:-$(security find-identity -v -p codesigning 2>/dev/null \
     | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)"/\1/')}"
 
@@ -142,10 +142,14 @@ xattr -cr "$STAGE" 2>/dev/null || true
 
 if [[ -n "$SIGN_ID" ]]; then
     echo "6b. Signing with: $SIGN_ID"
-    codesign --force --deep --sign "$SIGN_ID" "$STAGE"
+    codesign --force --options runtime --timestamp \
+        --entitlements "$PROJECT_ROOT/PodcastReady/PodcastReady.entitlements" \
+        --sign "$SIGN_ID" "$STAGE"
     codesign -dv "$STAGE" 2>&1 | grep -E "Authority|TeamIdentifier" | sed 's/^/    /'
 else
     echo "6b. No Developer ID found — falling back to ad-hoc (permissions will reset each build)."
+    # No hardened runtime here: an ad-hoc signature cannot be notarised anyway,
+    # and the runtime would only add a way for local runs to fail.
     codesign --force --deep --sign - "$STAGE"
 fi
 

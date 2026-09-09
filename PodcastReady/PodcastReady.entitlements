@@ -2,8 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!--
+      Hardened runtime resource access. Required for notarisation: with the
+      hardened runtime enabled and these absent, the OS denies access silently
+      rather than prompting.
+
+      device.usb is the load-bearing one here — the UVC camera controls are
+      IOKit USB control requests, not AVFoundation, so the camera entitlement
+      alone is not enough.
+    -->
     <key>com.apple.security.device.camera</key>
     <true/>
+
+    <key>com.apple.security.device.usb</key>
+    <true/>
+
+    <!-- Bonjour discovery of the Elgato light, and the Anthropic API. -->
     <key>com.apple.security.network.client</key>
     <true/>
 </dict>
